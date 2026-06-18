@@ -2,29 +2,32 @@
 
 > *"Your code is bad and you should feel bad... but I'll explain exactly why."*
 
-A comprehensive technical review agent inspired by Bertrand Gilfoyle from Silicon Valley. This Claude Code agent provides multi-perspective technical analysis with characteristic precision and wit.
+An opinionated technical review agent inspired by Bertrand Gilfoyle from Silicon Valley. This Claude Code agent reviews the change in front of it — scoped, severity-ranked, and delivered with characteristic precision and wit. The barbs sit on top of real findings; it doesn't manufacture noise to look thorough.
 
 ## 🎯 What This Agent Does
 
-The Gilfoyle Tech Reviewer agent provides thorough technical analysis across multiple domains:
+Gilfoyle picks the lenses that fit the change rather than running all of them on everything. Auth code leads with security; a refactor leads with simplification. Available lenses:
 
 - **Code Quality Review**: Structure, readability, maintainability, and adherence to best practices
 - **Security Analysis**: Threat modeling, vulnerability assessment, and security best practices
 - **Architecture Review**: System design, scalability, and technical debt assessment
 - **Code Simplification**: Eliminating unnecessary complexity and over-engineering
 - **UX Analysis**: User experience patterns, accessibility, and usability evaluation
-- **Tech Lead Perspective**: Business alignment, team productivity, and technical standards
+- **Tech Lead / Planning Review**: Architecture trade-offs, complexity-vs-value, risk and critical-path analysis
+
+It defaults to the recently changed/discussed code (the current diff) and reviews the whole codebase only when asked.
 
 ## 🚀 How to Use
 
 ### Installation
 
-1. Copy the `gilfoyle-tech-reviewer.md` file to your Claude Code agents directory:
+1. Copy the agent (and optionally the `/gilfoyle` slash command) into your Claude Code config:
    ```bash
    cp gilfoyle-tech-reviewer.md ~/.claude/agents/
+   cp gilfoyle.md ~/.claude/commands/   # optional: enables /gilfoyle
    ```
 
-2. The agent will be automatically available in Claude Code
+2. The agent is available immediately. Invoke it with `/gilfoyle [target]`, or just ask for a review and Claude will dispatch it.
 
 ### Usage Examples
 
@@ -50,20 +53,20 @@ I need feedback on the overall architecture of this microservice.
 
 ## 🔧 What You Get
 
-### Comprehensive Analysis
-- Multiple technical perspectives on the same code
-- Prioritized findings by severity and impact
-- Specific, actionable recommendations with examples
+### Scoped, Defensible Findings
+- A one-line scope statement, then findings ranked by severity: 🔴 Critical → 🟠 Major → 🟡 Minor
+- Each finding ties to a concrete `file:line`, explains why it matters, and proposes a fix
+- Only findings he'd defend — style nitpicks are suppressed unless they cause real harm
+- A closing verdict: ship / fix-then-ship / back to the drawing board
 
 ### Gilfoyle's Signature Style
-- Direct, honest feedback with subtle sarcasm
-- Methodical precision in technical analysis
-- Professional standards with distinctive personality
+- Direct, openly opinionated feedback with subtle sarcasm — the voice makes it memorable, the rigor makes it correct
+- Methodical precision; every barb sits on top of a traceable finding
+- Praise is rare and therefore worth something
 
-### Quality Assurance
-- Rationale for all recommendations
-- Testing strategies and validation approaches
-- Both immediate fixes and long-term improvements
+### No Manufactured Noise
+- Reads the actual code path before judging — no reviewing snippets in isolation
+- If there's nothing worth flagging, says so plainly instead of padding the list
 
 ## 📋 Review Capabilities
 
@@ -94,7 +97,7 @@ This agent embodies Bertrand Gilfoyle's approach to technical excellence:
 
 - **Brutally Honest**: No sugar-coating, just facts
 - **Methodically Precise**: Every detail matters
-- **Comprehensively Thorough**: Multiple angles on every issue
+- **Scoped, Not Exhaustive**: Reviews the change at hand, gated by confidence and impact
 - **Elegantly Sardonic**: Technical feedback with personality
 
 ## 🤝 Contributing
