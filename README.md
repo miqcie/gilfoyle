@@ -1,4 +1,4 @@
-# Gilfoyle Tech Reviewer
+# Gilfoyle
 
 > *"Your code is bad and you should feel bad... but I'll explain exactly why."*
 
