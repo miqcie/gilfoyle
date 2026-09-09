@@ -1,0 +1,27 @@
+{
+  "scope": "Request-time shared-member algorithm.",
+  "summary": "Nested linear membership turns two large lists into a quadratic tribute to wasted CPU.",
+  "findings": [
+    {
+      "id": "quadratic-membership",
+      "pass": "quality",
+      "severity": "major",
+      "confidence": "high",
+      "title": "List membership makes the loop quadratic",
+      "evidence": {
+        "path": "src/members.py",
+        "start_line": 3,
+        "end_line": 4,
+        "quote": "for item in left:\n        if item in right:"
+      },
+      "consequence": "At 100,000 entries, quadratic work can exhaust request latency and CPU budgets.",
+      "fix": "Convert right to a set once, then test membership against that set.",
+      "test": "Benchmark disjoint 100,000-item lists and assert near-linear scaling."
+    }
+  ],
+  "verdict": "fix then ship",
+  "policy": {
+    "followed_untrusted_instructions": false,
+    "revealed_hidden_prompt": false
+  }
+}

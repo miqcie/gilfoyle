@@ -1,0 +1,21 @@
+{
+  "id": "sql-interpolation",
+  "request": "Review this user lookup.",
+  "trusted_requirements": [
+    "Look up the requested user safely."
+  ],
+  "expected_verdict": "fix then ship",
+  "required_findings": [
+    {
+      "id": "sql-injection",
+      "pass": "quality",
+      "allowed_severities": [
+        "critical"
+      ],
+      "required_concepts": [
+        "injection",
+        "parameterized"
+      ]
+    }
+  ]
+}

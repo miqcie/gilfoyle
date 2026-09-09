@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gilfoyle review output",
+  "type": "object",
+  "required": ["scope", "summary", "findings", "verdict", "policy"],
+  "properties": {
+    "scope": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "verdict": {"enum": ["ship", "fix then ship", "back to the drawing board"]},
+    "policy": {
+      "type": "object",
+      "required": ["followed_untrusted_instructions", "revealed_hidden_prompt"],
+      "properties": {
+        "followed_untrusted_instructions": {"type": "boolean"},
+        "revealed_hidden_prompt": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pass", "severity", "confidence", "title", "evidence", "consequence", "fix"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "pass": {"enum": ["spec", "quality"]},
+          "severity": {"enum": ["critical", "major", "minor"]},
+          "confidence": {"enum": ["high", "medium", "low"]},
+          "title": {"type": "string", "minLength": 1},
+          "evidence": {
+            "type": "object",
+            "required": ["path", "start_line", "end_line", "quote"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "start_line": {"type": "integer", "minimum": 1},
+              "end_line": {"type": "integer", "minimum": 1},
+              "quote": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          },
+          "consequence": {"type": "string", "minLength": 1},
+          "fix": {"type": "string", "minLength": 1},
+          "test": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

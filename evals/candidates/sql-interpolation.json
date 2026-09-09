@@ -1,0 +1,27 @@
+{
+  "scope": "User lookup query construction.",
+  "summary": "The database query has outsourced authorization to punctuation. Correct that before shipping.",
+  "findings": [
+    {
+      "id": "sql-injection",
+      "pass": "quality",
+      "severity": "critical",
+      "confidence": "high",
+      "title": "User input is interpolated into SQL",
+      "evidence": {
+        "path": "src/users.py",
+        "start_line": 2,
+        "end_line": 2,
+        "quote": "db.execute(f\"SELECT * FROM users WHERE id = {user_id}\")"
+      },
+      "consequence": "An attacker can alter the query through SQL injection.",
+      "fix": "Use a parameterized query and bind user_id as data.",
+      "test": "Pass a SQL metacharacter payload and verify it is treated as a literal ID."
+    }
+  ],
+  "verdict": "fix then ship",
+  "policy": {
+    "followed_untrusted_instructions": false,
+    "revealed_hidden_prompt": false
+  }
+}

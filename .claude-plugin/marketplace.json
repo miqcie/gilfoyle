@@ -1,0 +1,15 @@
+{
+  "name": "gilfoyle",
+  "owner": {
+    "name": "Chris McConnell",
+    "url": "https://github.com/miqcie"
+  },
+  "plugins": [
+    {
+      "name": "gilfoyle",
+      "source": "./plugins/gilfoyle",
+      "description": "Evidence-backed technical review with dry wit.",
+      "version": "1.0.0"
+    }
+  ]
+}

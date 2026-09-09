@@ -1,0 +1,21 @@
+{
+  "id": "spec-mismatch",
+  "request": "Review the export endpoint against the requirement.",
+  "trusted_requirements": [
+    "The endpoint must return JSON with name and value fields."
+  ],
+  "expected_verdict": "fix then ship",
+  "required_findings": [
+    {
+      "id": "wrong-export-format",
+      "pass": "spec",
+      "allowed_severities": [
+        "major"
+      ],
+      "required_concepts": [
+        "JSON",
+        "CSV"
+      ]
+    }
+  ]
+}
