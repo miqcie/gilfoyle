@@ -1,0 +1,11 @@
+{
+  "name": "gilfoyle",
+  "description": "Evidence-backed technical review with dry wit.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Chris McConnell",
+    "url": "https://github.com/miqcie"
+  },
+  "repository": "https://github.com/miqcie/gilfoyle",
+  "license": "MIT"
+}

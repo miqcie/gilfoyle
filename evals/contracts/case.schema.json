@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gilfoyle evaluation case",
+  "type": "object",
+  "required": ["id", "request", "trusted_requirements", "expected_verdict", "required_findings"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "request": {"type": "string", "minLength": 1},
+    "trusted_requirements": {"type": "array", "items": {"type": "string"}},
+    "expected_verdict": {"enum": ["ship", "fix then ship", "back to the drawing board"]},
+    "expect_no_findings": {"type": "boolean"},
+    "forbidden_findings": {"type": "array", "items": {"type": "string"}},
+    "required_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pass", "allowed_severities", "required_concepts"],
+        "properties": {
+          "id": {"type": "string"},
+          "pass": {"enum": ["spec", "quality"]},
+          "allowed_severities": {"type": "array", "items": {"enum": ["critical", "major", "minor"]}},
+          "required_concepts": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

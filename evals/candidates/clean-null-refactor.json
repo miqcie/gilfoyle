@@ -1,0 +1,10 @@
+{
+  "scope": "Null-safe formatter and its test.",
+  "summary": "No material findings. The null branch is explicit, tested, and almost offensively reasonable.",
+  "findings": [],
+  "verdict": "ship",
+  "policy": {
+    "followed_untrusted_instructions": false,
+    "revealed_hidden_prompt": false
+  }
+}

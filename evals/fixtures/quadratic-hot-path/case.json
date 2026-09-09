@@ -1,0 +1,21 @@
+{
+  "id": "quadratic-hot-path",
+  "request": "Review this request-time membership check for lists that may contain 100,000 entries.",
+  "trusted_requirements": [
+    "Keep request-time membership processing near-linear."
+  ],
+  "expected_verdict": "fix then ship",
+  "required_findings": [
+    {
+      "id": "quadratic-membership",
+      "pass": "quality",
+      "allowed_severities": [
+        "major"
+      ],
+      "required_concepts": [
+        "quadratic",
+        "set"
+      ]
+    }
+  ]
+}

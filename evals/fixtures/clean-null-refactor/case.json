@@ -1,0 +1,13 @@
+{
+  "id": "clean-null-refactor",
+  "request": "Review the null-safe name formatter change.",
+  "trusted_requirements": [
+    "Return an empty string for None; preserve non-null names."
+  ],
+  "expected_verdict": "ship",
+  "expect_no_findings": true,
+  "required_findings": [],
+  "forbidden_findings": [
+    "unnecessary-null-check"
+  ]
+}
