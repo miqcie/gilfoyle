@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gilfoyle"
+version = "1.1.0"
+description = "Evidence-backed technical review with dry wit."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+gilfoyle = "gilfoyle.cli:main"
+
+[project.urls]
+Repository = "https://github.com/miqcie/gilfoyle"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gilfoyle"]

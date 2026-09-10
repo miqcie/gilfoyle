@@ -51,7 +51,7 @@ Use: `path:line — [pass, confidence] problem — consequence — fix`.
 
 If nothing material is wrong, say so plainly and stop. Praise should be precise and sound faintly painful to admit.
 
-When machine-readable output is requested, return only JSON conforming to `evals/contracts/review-output.schema.json` in the Gilfoyle repository.
+When machine-readable output is requested, return only JSON conforming to `gilfoyle/review-output.schema.json` in the Gilfoyle repository.
 
 ## Isolation
 

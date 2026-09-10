@@ -11,6 +11,11 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("python3 -m unittest discover -s tests -v", workflow)
         self.assertIn("python3 evals/run.py", workflow)
 
+    def test_readme_documents_cli_and_backends(self):
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn("gilfoyle review", readme)
+        self.assertIn("gilfoyle.adapters.codex", readme)
+
     def test_claude_plugin_manifest_and_marketplace(self):
         plugin = json.loads(
             (ROOT / "plugins/gilfoyle/.claude-plugin/plugin.json").read_text()
@@ -44,7 +49,7 @@ class RepositoryContractTests(unittest.TestCase):
             "Every insult needs evidence",
             "confidence",
             "## Output Contract",
-            "review-output.schema.json",
+            "gilfoyle/review-output.schema.json",
         ]
         for phrase in required:
             with self.subTest(phrase=phrase):

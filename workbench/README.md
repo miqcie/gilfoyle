@@ -1,7 +1,7 @@
 # Review workbench spike
 
 A standalone Vite/React spike for displaying a review result compatible with
-[`../evals/contracts/review-output.schema.json`](../evals/contracts/review-output.schema.json).
+[`../gilfoyle/review-output.schema.json`](../gilfoyle/review-output.schema.json).
 It deliberately has its own `package.json`; the Python reviewer and evaluation
 runtime do not install or import its browser dependencies.
 
