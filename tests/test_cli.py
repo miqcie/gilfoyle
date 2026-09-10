@@ -180,6 +180,27 @@ class CliTests(unittest.TestCase):
             out.write_text(json.dumps(review))
             self.assertEqual(read_review(out)["findings"][0]["test"], "assert_raises")
 
+    def test_directory_scope_skips_dotdirs_and_git_ignored_files(self):
+        with TemporaryDirectory() as directory:
+            directory = Path(directory)
+            (directory / "src").mkdir()
+            (directory / "src/app.py").write_text("x = 1\n")
+            (directory / ".env").write_text("SECRET=1\n")
+            (directory / "node_modules").mkdir()
+            (directory / "node_modules/x.js").write_text("1\n")
+            payload = build_payload(paths=[str(directory)])
+            self.assertEqual(list(payload["repository_files"]), [str(directory / "src/app.py")])
+
+    def test_quote_from_deleted_file_is_accepted_via_patch(self):
+        from gilfoyle.contract import validate_evidence
+
+        review = json.loads(json.dumps(REVIEW))
+        review["findings"][0]["evidence"] = {
+            "path": "gone.py", "start_line": 1, "end_line": 1, "quote": "+++ /dev/null"
+        }
+        self.assertEqual(validate_evidence(review, {}, PATCH), [])
+        self.assertEqual(len(validate_evidence(review, {}, None)), 1)
+
     def test_default_backend_quotes_the_interpreter(self):
         self.assertEqual(shlex.split(DEFAULT_BACKEND)[0], sys.executable)
 

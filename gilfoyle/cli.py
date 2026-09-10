@@ -25,10 +25,30 @@ class ScopeError(RuntimeError):
 
 
 def _git(*args):
-    process = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    try:
+        process = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    except FileNotFoundError as error:
+        raise ScopeError("git is not installed") from error
     if process.returncode:
         raise ScopeError(f"git {args[0]} failed: {process.stderr.strip()}")
     return process.stdout
+
+
+def _tracked_files(directory):
+    """Files under a directory, honoring gitignore inside a repo; skipping dotdirs outside."""
+    try:
+        names = _git(
+            "-C", str(directory), "ls-files", "-z", "--cached", "--others", "--exclude-standard"
+        )
+        return [directory / name for name in names.split("\0") if name]
+    except ScopeError:
+        pass
+    return [
+        p
+        for p in sorted(directory.rglob("*"))
+        if p.is_file()
+        and not any(part.startswith(".") or part == "node_modules" for part in p.relative_to(directory).parts)
+    ]
 
 
 def _read_text(path):
@@ -67,7 +87,7 @@ def build_payload(base=None, diff=None, paths=(), request=None, spec=None):
         for path in paths:
             path = Path(path)
             if path.is_dir():
-                names.extend((str(p), p) for p in sorted(path.rglob("*")) if p.is_file())
+                names.extend((str(p), p) for p in _tracked_files(path) if p.is_file())
             elif path.is_file():
                 names.append((str(path), path))
             else:
@@ -159,7 +179,7 @@ def main(argv=None):
         return 2
     errors = validate_review(result)
     if not errors:
-        errors = validate_evidence(result, payload["repository_files"])
+        errors = validate_evidence(result, payload["repository_files"], payload.get("diff"))
     if errors:
         print("backend returned an invalid review:", *errors, sep="\n  ", file=sys.stderr)
         return 2

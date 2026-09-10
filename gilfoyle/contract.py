@@ -218,8 +218,12 @@ def validate_review(review):
 
 
 
-def validate_evidence(review, files):
-    """Check every finding's quote against the files the reviewer was given."""
+def validate_evidence(review, files, patch=None):
+    """Check every finding's quote against the files the reviewer was given.
+
+    A quote for a path absent from ``files`` is accepted when it appears in
+    ``patch``: deleted files and removed lines exist only in the diff.
+    """
     errors = []
     for finding in review.get("findings", []):
         evidence = finding.get("evidence")
@@ -238,6 +242,8 @@ def validate_evidence(review, files):
         ):
             continue
         if relative not in files:
+            if patch and quote in patch:
+                continue
             errors.append(f"{finding.get('id')}: evidence path does not exist: {relative}")
             continue
         lines = files[relative].splitlines()
