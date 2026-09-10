@@ -25,7 +25,10 @@ The included adapter uses Claude Code with `fable` by default and no tools. Set 
 `--record` writes each raw review, its scored result, the requested model,
 resolved model ID, and Claude Code version after every completed case. The file
 remains marked `"complete": false` until the full run finishes, so a provider
-limit cannot erase the cases it already charged you for. Review the saved raw
+limit cannot erase the cases it already charged you for. Metadata is restricted
+to bounded model and usage fields. Invalid responses are represented by byte
+counts and SHA-256 digests instead of potentially sensitive output. A run-long
+file lock rejects concurrent writers to the same record. Review the saved raw
 responses against the humor rubric below and add that manual assessment before
 checking a live result into `evals/results/`.
 

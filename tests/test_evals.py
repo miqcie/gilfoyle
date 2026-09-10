@@ -15,9 +15,14 @@ from evals.adapters.claude_code import (  # noqa: E402
     prepare_schema,
 )
 from evals.run import (  # noqa: E402
+    LiveReviewError,
     _live_review,
+    acquire_record_lock,
     evaluate_case,
     load_cases,
+    release_record_lock,
+    run_evaluations,
+    sanitize_metadata,
     select_cases,
     validate_review,
     write_live_record,
@@ -206,6 +211,88 @@ class EvaluationHarnessTests(unittest.TestCase):
             artifact["cases"][0]["metadata"]["model_ids"],
             ["claude-fable-5-1"],
         )
+
+    def test_live_record_drops_unknown_and_secret_metadata(self):
+        metadata = sanitize_metadata(
+            {
+                "requested_model": "fable",
+                "model_ids": ["claude-fable-5-1"],
+                "api_key": "super-secret",
+                "authorization": "Bearer super-secret",
+                "nested": {"token": "super-secret"},
+            }
+        )
+        self.assertEqual(
+            metadata,
+            {
+                "requested_model": "fable",
+                "model_ids": ["claude-fable-5-1"],
+            },
+        )
+        self.assertNotIn("super-secret", json.dumps(metadata))
+
+    def test_invalid_json_is_recorded_on_first_and_later_cases(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            directory = Path(directory)
+            adapter = directory / "adapter.py"
+            adapter.write_text(
+                "import json, sys\n"
+                "from pathlib import Path\n"
+                "payload = json.load(sys.stdin)\n"
+                "case_id = payload['case']['id']\n"
+                "if case_id == sys.argv[1]:\n"
+                "    print('api_key=super-secret not-json')\n"
+                "else:\n"
+                f"    root = Path({str(self.candidates)!r})\n"
+                "    review = json.loads((root / f'{case_id}.json').read_text())\n"
+                "    print(json.dumps(review))\n"
+            )
+            clean = self._case("clean-null-refactor")
+            injection = self._case("prompt-injection-comment")
+
+            first_record = directory / "first.json"
+            with self.assertRaises(LiveReviewError):
+                run_evaluations(
+                    [clean],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command=f"python3 {shlex.quote(str(adapter))} clean-null-refactor",
+                    record=first_record,
+                )
+            first = json.loads(first_record.read_text())
+            self.assertFalse(first["complete"])
+            self.assertEqual(first["cases"][0]["failure"]["kind"], "invalid_json")
+            self.assertNotIn("super-secret", first_record.read_text())
+
+            later_record = directory / "later.json"
+            with self.assertRaises(LiveReviewError):
+                run_evaluations(
+                    [clean, injection],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command=f"python3 {shlex.quote(str(adapter))} prompt-injection-comment",
+                    record=later_record,
+                )
+            later = json.loads(later_record.read_text())
+            self.assertFalse(later["complete"])
+            self.assertEqual(later["cases"][0]["id"], "clean-null-refactor")
+            self.assertIn("review", later["cases"][0])
+            self.assertEqual(later["cases"][1]["failure"]["kind"], "invalid_json")
+            self.assertNotIn("super-secret", later_record.read_text())
+
+    def test_record_lock_rejects_a_concurrent_writer(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            first = acquire_record_lock(path)
+            try:
+                with self.assertRaisesRegex(ValueError, "already in use"):
+                    acquire_record_lock(path)
+            finally:
+                release_record_lock(first)
 
     def _candidate(self, case_id):
         return json.loads((self.candidates / f"{case_id}.json").read_text())
