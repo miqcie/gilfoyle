@@ -218,11 +218,21 @@ def validate_review(review):
 
 
 
+def patch_section(patch, path):
+    """The part of a unified diff that belongs to ``path``, or None."""
+    for section in patch.split("\ndiff --git ")[0:]:
+        header = section.split("\n", 1)[0]
+        if f"a/{path} " in header + " " or header.endswith(f"b/{path}"):
+            return section
+    return None
+
+
 def validate_evidence(review, files, patch=None):
     """Check every finding's quote against the files the reviewer was given.
 
-    A quote for a path absent from ``files`` is accepted when it appears in
-    ``patch``: deleted files and removed lines exist only in the diff.
+    A quote for a path absent from ``files`` is accepted only when ``patch``
+    has a section for that path containing the quote: deleted files and
+    removed lines exist only in the diff.
     """
     errors = []
     for finding in review.get("findings", []):
@@ -242,7 +252,8 @@ def validate_evidence(review, files, patch=None):
         ):
             continue
         if relative not in files:
-            if patch and quote in patch:
+            section = patch_section(patch, relative) if patch else None
+            if section and quote in section:
                 continue
             errors.append(f"{finding.get('id')}: evidence path does not exist: {relative}")
             continue

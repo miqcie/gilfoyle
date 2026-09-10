@@ -38,7 +38,8 @@ def _tracked_files(directory):
     """Files under a directory, honoring gitignore inside a repo; skipping dotdirs outside."""
     try:
         names = _git(
-            "-C", str(directory), "ls-files", "-z", "--cached", "--others", "--exclude-standard"
+            "-C", str(directory), "ls-files", "-z", "--cached", "--others",
+            "--exclude-standard", "--", ".",
         )
         return [directory / name for name in names.split("\0") if name]
     except ScopeError:

@@ -200,6 +200,12 @@ class CliTests(unittest.TestCase):
         }
         self.assertEqual(validate_evidence(review, {}, PATCH), [])
         self.assertEqual(len(validate_evidence(review, {}, None)), 1)
+        review["findings"][0]["evidence"]["path"] = "made-up.py"
+        self.assertEqual(len(validate_evidence(review, {}, PATCH)), 1)
+        review["findings"][0]["evidence"] = {
+            "path": "app.py", "start_line": 1, "end_line": 1, "quote": "+++ /dev/null"
+        }
+        self.assertEqual(len(validate_evidence(review, {}, PATCH)), 1)
 
     def test_default_backend_quotes_the_interpreter(self):
         self.assertEqual(shlex.split(DEFAULT_BACKEND)[0], sys.executable)
