@@ -20,8 +20,9 @@ The rendered annotation contains the finding ID, severity, and evidence quote.
 
 The path-first navigation is a `@pierre/trees` `FileTree`: changed paths are
 its canonical IDs, `gitStatus` marks each as modified, and
-`renderRowDecoration` supplies a per-path finding-count badge. Both packages
-are used through their React entry points.
+`renderRowDecoration` supplies a per-path finding-count badge. Selecting a path
+shows its annotated diff. Both packages are used through their React entry
+points, and a DOM interaction test verifies the selection-to-diff behavior.
 
 ## Verification
 

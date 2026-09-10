@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { MultiFileDiff } from "@pierre/diffs/react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { changedFiles, review } from "./fixture";
@@ -10,11 +10,19 @@ const gitStatus = paths.map((path) => ({ path, status: "modified" as const }));
 
 export function App() {
   const counts = useMemo(() => findingCountByPath(review.findings), []);
+  const [selectedPath, setSelectedPath] = useState<string>(paths[0]);
   const { model } = useFileTree({
     initialExpansion: "open",
+    initialSelectedPaths: [paths[0]],
     paths,
     gitStatus,
     search: true,
+    onSelectionChange: (selectedPaths) => {
+      const selected = selectedPaths[selectedPaths.length - 1];
+      if (typeof selected === "string" && paths.includes(selected)) {
+        setSelectedPath(selected);
+      }
+    },
     renderRowDecoration: ({ item }) => counts[item.path]
       ? { text: `${counts[item.path]} finding${counts[item.path] === 1 ? "" : "s"}` }
       : null,
@@ -26,7 +34,8 @@ export function App() {
       <FileTree model={model} header={<strong>Changed files · findings</strong>} style={{ height: 260 }} />
     </aside>
     <section aria-label="Annotated multi-file diff">
-      {changedFiles.map((file) => <MultiFileDiff
+      <h2>Reviewing {selectedPath}</h2>
+      {changedFiles.filter((file) => file.path === selectedPath).map((file) => <MultiFileDiff
         key={file.path}
         oldFile={{ name: file.path, contents: file.before }}
         newFile={{ name: file.path, contents: file.after }}
