@@ -1,0 +1,28 @@
+{
+  "name": "gilfoyle-review-workbench",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --force && vite build",
+    "typecheck": "tsc -b --force --pretty false",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pierre/diffs": "1.4.1",
+    "@pierre/trees": "1.0.0-beta.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "30.0.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}

@@ -103,9 +103,9 @@ The suite covers:
 
 Humor is scored manually for dry wit, specificity, restraint, intent, and distinctive voice. Counting jokes would be metrics theater, and he would be unbearable about it.
 
-## Possible review workbench
+## Review workbench spike
 
-[`@pierre/diffs`](https://diffs.com/docs) is a strong fit for rendered patches and inline findings. [`@pierre/trees`](https://trees.software/docs) is a strong fit for path-first repository navigation, Git status, and finding badges. The evaluation contract is UI-neutral so those can power a future workbench without becoming dependencies of the reviewer itself.
+The optional [`workbench/`](workbench/README.md) is an executable Vite/React spike. It consumes review-output-schema-compatible data, uses [`@pierre/diffs`](https://diffs.com/docs) for multi-file line annotations and [`@pierre/trees`](https://trees.software/docs) for path-first navigation, Git status, and finding-count badges. Its dependencies are isolated from the Python reviewer and evaluation runtime. The evidence supports **ADOPT** as an optional frontend, while its README records the beta/API and bundle-size maintenance risks.
 
 ## Contributing
 
