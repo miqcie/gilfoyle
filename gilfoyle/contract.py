@@ -219,14 +219,20 @@ def validate_review(review):
 
 
 
-_DIFF_HEADER = re.compile(r"^diff --git a/(.+?) b/(.+)$", re.MULTILINE)
+_DIFF_BOUNDARY = re.compile(r"^diff --git (.*)$", re.MULTILINE)
+_DIFF_NAMES = re.compile(r"^a/(.+?) b/(.+)$")
 
 
 def patch_section(patch, path):
-    """The part of a unified diff whose header names ``path`` exactly, or None."""
-    headers = list(_DIFF_HEADER.finditer(patch))
+    """The part of a unified diff whose header names ``path`` exactly, or None.
+
+    Every ``diff --git`` line is a boundary; names are read only from the
+    unquoted form, so a quoted (non-ASCII) header never matches a plain path.
+    """
+    headers = list(_DIFF_BOUNDARY.finditer(patch))
     for index, header in enumerate(headers):
-        if path in header.groups():
+        names = _DIFF_NAMES.match(header.group(1))
+        if names and path in names.groups():
             end = headers[index + 1].start() if index + 1 < len(headers) else len(patch)
             return patch[header.start():end]
     return None

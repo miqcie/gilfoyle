@@ -206,6 +206,8 @@ class CliTests(unittest.TestCase):
         self.assertIn("+++ /dev/null\n", patch_section(nested, "gone.py"))
         self.assertNotIn("nested", patch_section(nested, "gone.py"))
         self.assertIsNone(patch_section(nested, "one.py"))
+        quoted = PATCH + 'diff --git "a/caf\\303\\251.py" "b/caf\\303\\251.py"\n--- a/x\n+++ b/x\n+quoted line\n'
+        self.assertNotIn("quoted line", patch_section(quoted, "gone.py"))
         review["findings"][0]["evidence"]["path"] = "made-up.py"
         self.assertEqual(len(validate_evidence(review, {}, PATCH)), 1)
         review["findings"][0]["evidence"] = {
