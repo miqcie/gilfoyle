@@ -14,7 +14,7 @@ He is an asshole toward bad code and well meaning toward the person maintaining 
 - Prompt-injection boundary for instructions hidden in reviewed artifacts.
 - Provider-neutral model inheritance instead of forcing Opus.
 - Fixture-based evaluation of blockers, clean diffs, false positives, and injection resistance.
-- First-class Claude Code plugin and native Hermes skill packaging.
+- One canonical `SKILL.md`; Claude Code plugin, Hermes, Codex, and Cursor wrappers generated from it.
 
 ## Install
 
@@ -40,25 +40,18 @@ claude plugin validate ./plugins/gilfoyle --strict
 claude --plugin-dir ./plugins/gilfoyle
 ```
 
-### Hermes Agent skill
+### Other harnesses
 
-```bash
-hermes skills install https://raw.githubusercontent.com/miqcie/gilfoyle/master/skills/gilfoyle/SKILL.md
-```
+`SKILL.md` at the repository root is the canonical reviewer in the [Agent Skills](https://agentskills.io) format. Every wrapper under `plugins/` and `integrations/` is generated from it by `scripts/build_integrations.py`; CI fails if they drift.
 
-Ask Hermes for a Gilfoyle review or explicitly load `gilfoyle`. Consequential reviews should run in an independent subagent; blocking findings must still be reproduced before code is changed.
+| Harness | File | Install |
+|---|---|---|
+| Any Agent Skills reader (Codex, Gemini CLI, OpenCode, ...) | `SKILL.md` | copy into the harness's skills directory |
+| Hermes Agent | `integrations/hermes/SKILL.md` | `hermes skills install https://raw.githubusercontent.com/miqcie/gilfoyle/master/integrations/hermes/SKILL.md` |
+| Codex (rules) | `integrations/codex/AGENTS.md` | append to your repository `AGENTS.md` |
+| Cursor | `integrations/cursor/gilfoyle.mdc` | copy to `.cursor/rules/` |
 
-### Legacy Claude Code copy
-
-Existing copy-based installations remain supported:
-
-```bash
-mkdir -p ~/.claude/agents ~/.claude/commands
-cp gilfoyle-tech-reviewer.md ~/.claude/agents/
-cp gilfoyle.md ~/.claude/commands/
-```
-
-The plugin is preferred because copied files quietly become archaeological artifacts.
+Consequential reviews should run in a fresh context (a subagent or a new session fed the diff); blocking findings must be reproduced before code is changed.
 
 ## Review contract
 

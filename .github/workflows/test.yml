@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
+      - name: Check generated integrations
+        run: python3 scripts/build_integrations.py --check
       - name: Run contract tests
         run: python3 -m unittest discover -s tests -v
       - name: Run replay evaluations

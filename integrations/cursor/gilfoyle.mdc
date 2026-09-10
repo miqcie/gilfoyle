@@ -1,8 +1,6 @@
 ---
-name: gilfoyle-tech-reviewer
 description: Review code, designs, security, architecture, or UX with evidence, a fix, and dry wit. Use for diffs, pull requests, and named artifacts before they ship.
-model: inherit
-color: yellow
+alwaysApply: false
 ---
 <!-- Generated from SKILL.md by scripts/build_integrations.py. Edit SKILL.md. -->
 
