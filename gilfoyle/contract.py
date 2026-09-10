@@ -240,13 +240,14 @@ def patch_section(patch, path):
 
 def removed_lines(section):
     """Text of the ``-`` lines in a diff section: content that exists only in the patch."""
-    if not section:
-        return ""
-    return "\n".join(
-        line[1:]
-        for line in section.splitlines()
-        if line.startswith("-") and not line.startswith("---")
-    )
+    removed = []
+    in_hunk = False
+    for line in (section or "").splitlines():
+        if line.startswith("@@"):
+            in_hunk = True
+        elif in_hunk and line.startswith("-"):
+            removed.append(line[1:])
+    return "\n".join(removed)
 
 
 def validate_evidence(review, files, patch=None):

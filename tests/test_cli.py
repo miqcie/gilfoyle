@@ -210,6 +210,11 @@ class CliTests(unittest.TestCase):
         self.assertIsNone(patch_section(nested, "one.py"))
         quoted = PATCH + 'diff --git "a/caf\\303\\251.py" "b/caf\\303\\251.py"\n--- a/x\n+++ b/x\n+quoted line\n'
         self.assertNotIn("quoted line", patch_section(quoted, "gone.py"))
+        from gilfoyle.contract import removed_lines
+
+        self.assertEqual(
+            removed_lines("--- a/q.sql\n+++ b/q.sql\n@@ -1 +0,0 @@\n--- drop me\n"), "-- drop me"
+        )
         removed = PATCH.replace("+y = 2", "-y = 2")
         review["findings"][0]["evidence"] = {
             "path": "app.py", "start_line": 1, "end_line": 1, "quote": "y = 2"
