@@ -238,12 +238,23 @@ def patch_section(patch, path):
     return None
 
 
+def removed_lines(section):
+    """Text of the ``-`` lines in a diff section: content that exists only in the patch."""
+    if not section:
+        return ""
+    return "\n".join(
+        line[1:]
+        for line in section.splitlines()
+        if line.startswith("-") and not line.startswith("---")
+    )
+
+
 def validate_evidence(review, files, patch=None):
     """Check every finding's quote against the files the reviewer was given.
 
-    A quote that is not in the file is accepted only when ``patch`` has a
-    section for that exact path containing the quote: deleted files and
-    removed lines exist only in the diff.
+    A quote that is not in the file is accepted only when it appears among the
+    removed (``-``) lines of that exact path's diff section: deleted files and
+    removed lines exist only in the patch, and nothing else does.
     """
     errors = []
     for finding in review.get("findings", []):
@@ -262,8 +273,7 @@ def validate_evidence(review, files, patch=None):
             or not isinstance(quote, str)
         ):
             continue
-        section = patch_section(patch, relative) if patch else None
-        quoted_in_patch = bool(section) and quote in section
+        quoted_in_patch = quote in removed_lines(patch_section(patch, relative) if patch else None)
         if relative not in files:
             if not quoted_in_patch:
                 errors.append(f"{finding.get('id')}: evidence path does not exist: {relative}")

@@ -28,6 +28,8 @@ PATCH = """diff --git a/app.py b/app.py
 diff --git a/gone.py b/gone.py
 --- a/gone.py
 +++ /dev/null
+@@ -1 +0,0 @@
+-was_here = True
 """
 
 REVIEW = {
@@ -196,14 +198,14 @@ class CliTests(unittest.TestCase):
 
         review = json.loads(json.dumps(REVIEW))
         review["findings"][0]["evidence"] = {
-            "path": "gone.py", "start_line": 1, "end_line": 1, "quote": "+++ /dev/null"
+            "path": "gone.py", "start_line": 1, "end_line": 1, "quote": "was_here = True"
         }
         self.assertEqual(validate_evidence(review, {}, PATCH), [])
         self.assertEqual(len(validate_evidence(review, {}, None)), 1)
         from gilfoyle.contract import patch_section
 
         nested = "diff --git a/src/a/gone.py b/src/a/gone.py\n--- a/src/a/gone.py\n+++ /dev/null\n-nested\n" + PATCH
-        self.assertIn("+++ /dev/null\n", patch_section(nested, "gone.py"))
+        self.assertIn("was_here", patch_section(nested, "gone.py"))
         self.assertNotIn("nested", patch_section(nested, "gone.py"))
         self.assertIsNone(patch_section(nested, "one.py"))
         quoted = PATCH + 'diff --git "a/caf\\303\\251.py" "b/caf\\303\\251.py"\n--- a/x\n+++ b/x\n+quoted line\n'
@@ -215,14 +217,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(validate_evidence(review, {"app.py": "x = 1\n"}, removed), [])
         self.assertEqual(len(validate_evidence(review, {"app.py": "x = 1\n"}, None)), 1)
         review["findings"][0]["evidence"] = {
-            "path": "gone.py", "start_line": 1, "end_line": 1, "quote": "+++ /dev/null"
+            "path": "gone.py", "start_line": 1, "end_line": 1, "quote": "was_here = True"
         }
         review["findings"][0]["evidence"]["path"] = "made-up.py"
         self.assertEqual(len(validate_evidence(review, {}, PATCH)), 1)
         review["findings"][0]["evidence"] = {
-            "path": "app.py", "start_line": 1, "end_line": 1, "quote": "+++ /dev/null"
+            "path": "app.py", "start_line": 1, "end_line": 1, "quote": "y = 2"
         }
-        self.assertEqual(len(validate_evidence(review, {}, PATCH)), 1)
+        # Added line with a wrong range: the file can be checked, so the patch is no excuse.
+        self.assertEqual(len(validate_evidence(review, {"app.py": "x = 1\ny = 2\n"}, PATCH)), 1)
 
     def test_default_backend_quotes_the_interpreter(self):
         self.assertEqual(shlex.split(DEFAULT_BACKEND)[0], sys.executable)
