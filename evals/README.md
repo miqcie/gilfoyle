@@ -15,10 +15,19 @@ Replay uses the reference responses in `evals/candidates/` to prove the harness 
 Live mode sends a JSON object containing the case and repository files to a caller-supplied command on stdin. The command must return only JSON matching `contracts/review-output.schema.json`:
 
 ```bash
-python3 evals/run.py --live-command 'python3 evals/adapters/claude_code.py' --case sql-interpolation
+python3 evals/run.py \
+  --live-command 'python3 evals/adapters/claude_code.py' \
+  --record evals/results/fable.json
 ```
 
 The included adapter uses Claude Code with `fable` by default and no tools. Set `GILFOYLE_CLAUDE_MODEL` to override the model. Any other executable that honors the stdin/stdout contract can be substituted.
+
+`--record` writes each raw review, its scored result, the requested model,
+resolved model ID, and Claude Code version after every completed case. The file
+remains marked `"complete": false` until the full run finishes, so a provider
+limit cannot erase the cases it already charged you for. Review the saved raw
+responses against the humor rubric below and add that manual assessment before
+checking a live result into `evals/results/`.
 
 The harness does not select a provider, read credentials, or incur model costs unless a live command is explicitly supplied.
 

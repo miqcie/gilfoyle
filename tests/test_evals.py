@@ -1,5 +1,6 @@
 import copy
 import json
+import shlex
 import sys
 import unittest
 from pathlib import Path
@@ -8,15 +9,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from evals.adapters.claude_code import (  # noqa: E402
+    extract_response,
     extract_review,
     process_error,
     prepare_schema,
 )
 from evals.run import (  # noqa: E402
+    _live_review,
     evaluate_case,
     load_cases,
     select_cases,
     validate_review,
+    write_live_record,
 )
 
 
@@ -139,6 +143,68 @@ class EvaluationHarnessTests(unittest.TestCase):
         )
         self.assertEqual(
             extract_review(json.dumps({"result": json.dumps(review)})), review
+        )
+
+    def test_claude_adapter_preserves_model_metadata_for_recording(self):
+        review = self._candidate("clean-null-refactor")
+        output = json.dumps(
+            {
+                "structured_output": review,
+                "modelUsage": {"claude-fable-5-1": {"inputTokens": 10}},
+            }
+        )
+        actual, metadata = extract_response(output)
+        self.assertEqual(actual, review)
+        self.assertEqual(metadata["model_ids"], ["claude-fable-5-1"])
+
+    def test_live_review_accepts_recording_envelope(self):
+        review = self._candidate("clean-null-refactor")
+        envelope = json.dumps(
+            {
+                "review": review,
+                "metadata": {
+                    "requested_model": "fable",
+                    "model_ids": ["claude-fable-5-1"],
+                },
+            }
+        )
+        command = f"python3 -c {shlex.quote(f'print({envelope!r})')}"
+        actual, metadata = _live_review(
+            command,
+            self._case("clean-null-refactor"),
+            ROOT / "evals/fixtures",
+        )
+        self.assertEqual(actual, review)
+        self.assertEqual(metadata["model_ids"], ["claude-fable-5-1"])
+
+    def test_live_record_keeps_raw_reviews_and_progress(self):
+        from tempfile import TemporaryDirectory
+
+        review = self._candidate("clean-null-refactor")
+        evaluation = evaluate_case(
+            self._case("clean-null-refactor"), review, ROOT / "evals/fixtures"
+        )
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            write_live_record(
+                path,
+                [{
+                    "id": "clean-null-refactor",
+                    "review": review,
+                    "metadata": {
+                        "requested_model": "fable",
+                        "model_ids": ["claude-fable-5-1"],
+                    },
+                    "evaluation": evaluation,
+                }],
+                complete=False,
+            )
+            artifact = json.loads(path.read_text())
+        self.assertFalse(artifact["complete"])
+        self.assertEqual(artifact["cases"][0]["review"], review)
+        self.assertEqual(
+            artifact["cases"][0]["metadata"]["model_ids"],
+            ["claude-fable-5-1"],
         )
 
     def _candidate(self, case_id):

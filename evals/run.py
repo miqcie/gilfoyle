@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2}
@@ -261,6 +262,8 @@ def _live_review(command, case, fixtures_dir):
         if path.is_file()
     }
     payload = {"case": case, "repository_files": files}
+    environment = dict(os.environ)
+    environment["GILFOYLE_EVAL_ENVELOPE"] = "1"
     process = subprocess.run(
         command,
         input=json.dumps(payload),
@@ -268,10 +271,34 @@ def _live_review(command, case, fixtures_dir):
         shell=True,
         capture_output=True,
         check=False,
+        env=environment,
     )
     if process.returncode:
         raise RuntimeError(process.stderr.strip() or f"command exited {process.returncode}")
-    return json.loads(process.stdout)
+    output = json.loads(process.stdout)
+    if (
+        isinstance(output, dict)
+        and isinstance(output.get("review"), dict)
+        and isinstance(output.get("metadata"), dict)
+    ):
+        return output["review"], output["metadata"]
+    return output, {}
+
+
+def write_live_record(path, cases, complete, summary=None):
+    """Atomically retain raw live reviews after every completed case."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    artifact = {
+        "schema_version": 1,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "complete": complete,
+        "cases": cases,
+        "summary": summary,
+    }
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(artifact, indent=2) + "\n")
+    temporary.replace(path)
 
 
 def main():
@@ -279,6 +306,10 @@ def main():
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--live-command", default=os.getenv("GILFOYLE_EVAL_COMMAND"))
     parser.add_argument("--json", action="store_true", dest="as_json")
+    parser.add_argument(
+        "--record",
+        help="write raw live reviews, model metadata, and incremental results",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent
@@ -288,13 +319,30 @@ def main():
         cases = select_cases(cases, args.case_ids)
     except ValueError as error:
         parser.error(str(error))
+    if args.record and not args.live_command:
+        parser.error("--record requires --live-command")
     results = []
+    live_records = []
+    if args.record:
+        write_live_record(args.record, live_records, complete=False)
     for case in cases:
         if args.live_command:
-            review = _live_review(args.live_command, case, fixtures)
+            review, metadata = _live_review(args.live_command, case, fixtures)
         else:
             review = json.loads((root / "candidates" / f"{case['id']}.json").read_text())
-        results.append(evaluate_case(case, review, fixtures))
+            metadata = {}
+        result = evaluate_case(case, review, fixtures)
+        results.append(result)
+        if args.record:
+            live_records.append(
+                {
+                    "id": case["id"],
+                    "review": review,
+                    "metadata": metadata,
+                    "evaluation": result,
+                }
+            )
+            write_live_record(args.record, live_records, complete=False)
 
     report = {
         "passed": all(result["passed"] for result in results),
@@ -302,6 +350,8 @@ def main():
         "passed_count": sum(result["passed"] for result in results),
         "results": results,
     }
+    if args.record:
+        write_live_record(args.record, live_records, complete=True, summary=report)
     if args.as_json:
         print(json.dumps(report, indent=2))
     else:
