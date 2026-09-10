@@ -58,11 +58,11 @@ def extract_response(output):
 
 
 def main():
-    root = Path(__file__).resolve().parents[2]
+    package = Path(__file__).resolve().parents[1]
     payload = json.load(sys.stdin)
-    system_prompt = (root / "SKILL.md").read_text()
+    system_prompt = (package / "SKILL.md").read_text()
     schema = prepare_schema(
-        json.loads((root / "evals/contracts/review-output.schema.json").read_text())
+        json.loads((package / "review-output.schema.json").read_text())
     )
     model = os.getenv("GILFOYLE_CLAUDE_MODEL", "fable")
     prompt = (
@@ -110,6 +110,8 @@ def main():
         ).stdout.strip()
         metadata.update(
             {
+                "backend": "claude_code",
+                "backend_version": version,
                 "requested_model": model,
                 "claude_code_version": version,
             }

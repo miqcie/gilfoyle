@@ -24,6 +24,7 @@ def render(skill_text):
     header = "<!-- Generated from SKILL.md by scripts/build_integrations.py. Edit SKILL.md. -->\n"
     return {
         "plugins/gilfoyle/skills/gilfoyle/SKILL.md": skill_text,
+        "gilfoyle/SKILL.md": skill_text,
         "plugins/gilfoyle/agents/gilfoyle-tech-reviewer.md": (
             "---\n"
             "name: gilfoyle-tech-reviewer\n"

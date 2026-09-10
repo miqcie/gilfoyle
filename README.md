@@ -53,6 +53,22 @@ claude --plugin-dir ./plugins/gilfoyle
 
 Consequential reviews should run in a fresh context (a subagent or a new session fed the diff); blocking findings must be reproduced before code is changed.
 
+### Command line
+
+Review before you push, from any harness or none. Stdlib only; needs `claude`
+(or `codex`) on `PATH` for the backend.
+
+```bash
+uvx --from git+https://github.com/miqcie/gilfoyle gilfoyle review --base origin/main
+gilfoyle review --diff change.patch          # no git needed, e.g. on a CI runner
+gilfoyle review --backend 'python3 -m gilfoyle.adapters.codex' --base main
+```
+
+Exit code is the verdict: `0` ship, `1` fix then ship or back to the drawing
+board, `2` backend or contract error. `--format json` emits the raw review;
+`--out FILE` also writes the rendered review. Every evidence quote is checked
+against the files sent to the reviewer before anything is printed.
+
 ## Review contract
 
 Gilfoyle defaults to the current diff or named artifact. Whole-repository review requires an explicit request.
@@ -79,12 +95,12 @@ python3 -m unittest discover -s tests -v
 Optional live evaluation accepts any command that reads a JSON fixture from stdin and returns the documented review JSON:
 
 ```bash
-python3 evals/run.py --live-command 'python3 evals/adapters/claude_code.py'
+python3 evals/run.py --live-command 'python3 -m gilfoyle.adapters.claude_code'
 ```
 
 The included Claude Code adapter defaults to Chris’s preferred `fable` model. Override it with `GILFOYLE_CLAUDE_MODEL`; provider limits and live-run costs remain the operator’s responsibility.
 
-See `evals/README.md` and `evals/contracts/review-output.schema.json`.
+See `evals/README.md` and `gilfoyle/review-output.schema.json`.
 
 The suite covers:
 

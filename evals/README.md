@@ -12,19 +12,24 @@ python3 -m unittest discover -s tests -v
 
 Replay uses the reference responses in `evals/candidates/` to prove the harness and fixture oracles agree. It does not claim that a live model passed.
 
-Live mode sends a JSON object containing the case and repository files to a caller-supplied command on stdin. The command must return only JSON matching `contracts/review-output.schema.json`:
+Live mode sends a JSON object containing the case and repository files to a caller-supplied command on stdin. The command must return only JSON matching `gilfoyle/review-output.schema.json`:
 
 ```bash
 python3 evals/run.py \
-  --live-command 'python3 evals/adapters/claude_code.py' \
+  --live-command 'python3 -m gilfoyle.adapters.claude_code' \
   --record evals/results/fable.json
 ```
 
-The included adapter uses Claude Code with `fable` by default, no tools, and no
+The included Claude Code adapter uses Claude Code with `fable` by default, no tools, and no
 MCP servers (`--strict-mcp-config`). A measured probe used 518,000 input tokens
 with the global MCP configuration and 12,800 with strict isolation. Set
 `GILFOYLE_CLAUDE_MODEL` to override the model. Any other executable that honors
 the stdin/stdout contract can be substituted.
+
+A Codex adapter honors the same contract: `--live-command 'python3 -m
+gilfoyle.adapters.codex'`. It passes `--ignore-user-config` for the same reason
+and converts the schema to OpenAI strict mode (every field required, `test`
+nullable). Set `GILFOYLE_CODEX_MODEL` to pick a model.
 
 `--record` writes each raw review, its scored result, the requested model,
 resolved model ID, and Claude Code version after every completed case. The file

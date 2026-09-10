@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from evals.adapters.claude_code import (  # noqa: E402
+from gilfoyle.adapters.claude_code import (  # noqa: E402
     extract_response,
     extract_review,
     process_error,
@@ -211,6 +211,10 @@ class EvaluationHarnessTests(unittest.TestCase):
             artifact["cases"][0]["metadata"]["model_ids"],
             ["claude-fable-5-1"],
         )
+
+    def test_backend_metadata_fields_are_retained(self):
+        kept = sanitize_metadata({"backend": "codex", "backend_version": "codex-cli 0.1", "api_key": "x"})
+        self.assertEqual(kept, {"backend": "codex", "backend_version": "codex-cli 0.1"})
 
     def test_live_record_drops_unknown_and_secret_metadata(self):
         metadata = sanitize_metadata(
