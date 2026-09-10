@@ -1,0 +1,80 @@
+name: Gilfoyle review
+
+# Reusable: `uses: miqcie/gilfoyle/.github/workflows/review.yml@master`
+# with `secrets: inherit` (or ANTHROPIC_API_KEY). Also runs on this repo's PRs.
+
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      base:
+        description: git ref to diff against
+        type: string
+        default: ${{ github.base_ref }}
+      runs-on:
+        description: runner label, e.g. latchkey-small
+        type: string
+        default: ubuntu-latest
+      ref:
+        description: gilfoyle ref to install
+        type: string
+        default: master
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v5
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Check for API key
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::notice::ANTHROPIC_API_KEY is not set; skipping the Gilfoyle review"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Review
+        id: review
+        if: steps.key.outputs.present == 'true'
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BASE: ${{ inputs.base || github.base_ref }}
+          SOURCE: ${{ github.repository == 'miqcie/gilfoyle' && '.' || format('git+https://github.com/miqcie/gilfoyle@{0}', inputs.ref || 'master') }}
+        run: |
+          uvx --from "$SOURCE" gilfoyle review --base "origin/$BASE" --out review.md
+      - name: Comment
+        if: steps.key.outputs.present == 'true' && (github.event_name == 'pull_request' || github.event.pull_request)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.existsSync('review.md')
+              ? fs.readFileSync('review.md', 'utf8')
+              : 'Gilfoyle could not produce a review; see the job log.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Gilfoyle\n\n${body}`,
+            });
+      - name: Verdict
+        if: steps.review.outcome == 'failure'
+        run: exit 1
