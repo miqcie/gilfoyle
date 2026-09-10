@@ -1,0 +1,2 @@
+:root { color-scheme: dark; font-family: ui-sans-serif, system-ui; background: #0d1117; color: #c9d1d9; }
+body { margin: 0; } main { display: grid; grid-template-columns: minmax(220px, 24%) 1fr; gap: 16px; padding: 16px; } header { grid-column: 1 / -1; border-bottom: 1px solid #30363d; } h1 { margin: 0 0 8px; } aside { border: 1px solid #30363d; border-radius: 6px; padding: 8px; } section { min-width: 0; } .finding { margin: 6px 0; padding: 8px; border-radius: 4px; color: #fff; } .finding.critical { background: #6e1721; } .finding.major { background: #6a4300; }
