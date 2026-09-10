@@ -69,6 +69,12 @@ board, `2` backend or contract error. `--format json` emits the raw review;
 `--out FILE` also writes the rendered review. Every evidence quote is checked
 against the files sent to the reviewer before anything is printed.
 
+### Before a pull request lands
+
+`docs/run-in-ci.md` has three recipes: a reusable GitHub Actions workflow that
+comments on PRs, a Latchkey CLI job that reviews a patch on a fresh runner, and
+a local pre-push hook.
+
 ## Review contract
 
 Gilfoyle defaults to the current diff or named artifact. Whole-repository review requires an explicit request.
