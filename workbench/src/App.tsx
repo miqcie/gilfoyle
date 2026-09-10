@@ -5,7 +5,7 @@ import { changedFiles, review } from "./fixture";
 import { findingCountByPath } from "./review-model";
 import "./styles.css";
 
-const paths = changedFiles.map(({ path }) => path);
+const paths: string[] = changedFiles.map(({ path }) => path);
 const gitStatus = paths.map((path) => ({ path, status: "modified" as const }));
 
 export function App() {
