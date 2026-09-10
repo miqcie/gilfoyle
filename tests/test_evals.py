@@ -305,6 +305,39 @@ class EvaluationHarnessTests(unittest.TestCase):
             self.assertEqual(later["cases"][1]["failure"]["kind"], "invalid_json")
             self.assertNotIn("super-secret", later_record.read_text())
 
+    def test_existing_record_is_never_overwritten(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            path.write_text('{"paid": "evidence"}\n')
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                run_evaluations(
+                    [self._case("clean-null-refactor")],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command="true",
+                    record=path,
+                )
+            self.assertEqual(path.read_text(), '{"paid": "evidence"}\n')
+
+    def test_failed_live_command_surfaces_stderr_without_recording_it(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            record = Path(directory) / "live.json"
+            with self.assertRaisesRegex(LiveReviewError, "exited 3: session limit reached"):
+                run_evaluations(
+                    [self._case("clean-null-refactor")],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command="echo 'session limit reached' >&2; exit 3",
+                    record=record,
+                )
+            artifact = json.loads(record.read_text())
+            self.assertEqual(artifact["cases"][0]["failure"]["kind"], "command_failed")
+            self.assertNotIn("session limit", record.read_text())
+
     def test_record_lock_rejects_a_concurrent_writer(self):
         from tempfile import TemporaryDirectory
 

@@ -331,10 +331,12 @@ def _live_review(command, case, fixtures_dir):
         env=environment,
     )
     if process.returncode:
-        raise LiveReviewError(
-            f"live command exited {process.returncode}",
-            _failed_response("command_failed", process),
-        )
+        message = f"live command exited {process.returncode}"
+        stderr = process.stderr.strip()
+        if stderr:
+            # Console only; the record keeps digests, not provider text.
+            message += f": {stderr[:500]}"
+        raise LiveReviewError(message, _failed_response("command_failed", process))
     try:
         output = json.loads(process.stdout)
     except json.JSONDecodeError as error:
@@ -422,8 +424,8 @@ def run_evaluations(cases, fixtures, candidates, live_command=None, record=None)
     """Run cases and durably retain each live response or failure."""
     results = []
     live_records = []
-    if record:
-        write_live_record(record, live_records, complete=False)
+    if record and Path(record).exists():
+        raise ValueError(f"record already exists, move it aside to rerun: {record}")
     for case in cases:
         if live_command:
             try:
