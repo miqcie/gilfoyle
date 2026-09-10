@@ -220,6 +220,8 @@ class EvaluationHarnessTests(unittest.TestCase):
                 "api_key": "super-secret",
                 "authorization": "Bearer super-secret",
                 "nested": {"token": "super-secret"},
+                "total_cost_usd": float("inf"),
+                "duration_ms": float("nan"),
             }
         )
         self.assertEqual(
@@ -230,6 +232,27 @@ class EvaluationHarnessTests(unittest.TestCase):
             },
         )
         self.assertNotIn("super-secret", json.dumps(metadata))
+
+    def test_live_record_is_strict_json(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            write_live_record(path, [], complete=False)
+            with self.assertRaises(ValueError):
+                write_live_record(
+                    path,
+                    [{"metadata": {"total_cost_usd": float("inf")}}],
+                    complete=False,
+                )
+            artifact = json.loads(
+                path.read_text(),
+                parse_constant=lambda value: self.fail(
+                    f"non-standard JSON constant: {value}"
+                ),
+            )
+        self.assertFalse(artifact["complete"])
+        self.assertEqual(artifact["cases"], [])
 
     def test_invalid_json_is_recorded_on_first_and_later_cases(self):
         from tempfile import TemporaryDirectory

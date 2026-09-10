@@ -5,6 +5,7 @@ import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -44,7 +45,11 @@ def sanitize_metadata(metadata):
         ]
     for field in METADATA_NUMBER_FIELDS:
         value = metadata.get(field)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+        ):
             sanitized[field] = value
     return sanitized
 
@@ -372,7 +377,7 @@ def write_live_record(path, cases, complete, summary=None):
     temporary = Path(handle.name)
     try:
         with handle:
-            json.dump(artifact, handle, indent=2)
+            json.dump(artifact, handle, indent=2, allow_nan=False)
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
