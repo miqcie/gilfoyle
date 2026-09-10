@@ -241,8 +241,8 @@ def patch_section(patch, path):
 def validate_evidence(review, files, patch=None):
     """Check every finding's quote against the files the reviewer was given.
 
-    A quote for a path absent from ``files`` is accepted only when ``patch``
-    has a section for that path containing the quote: deleted files and
+    A quote that is not in the file is accepted only when ``patch`` has a
+    section for that exact path containing the quote: deleted files and
     removed lines exist only in the diff.
     """
     errors = []
@@ -262,16 +262,17 @@ def validate_evidence(review, files, patch=None):
             or not isinstance(quote, str)
         ):
             continue
+        section = patch_section(patch, relative) if patch else None
+        quoted_in_patch = bool(section) and quote in section
         if relative not in files:
-            section = patch_section(patch, relative) if patch else None
-            if section and quote in section:
-                continue
-            errors.append(f"{finding.get('id')}: evidence path does not exist: {relative}")
+            if not quoted_in_patch:
+                errors.append(f"{finding.get('id')}: evidence path does not exist: {relative}")
             continue
         lines = files[relative].splitlines()
         if end > len(lines):
-            errors.append(f"{finding.get('id')}: evidence range is outside file")
+            if not quoted_in_patch:
+                errors.append(f"{finding.get('id')}: evidence range is outside file")
             continue
-        if quote not in "\n".join(lines[start - 1 : end]):
+        if quote not in "\n".join(lines[start - 1 : end]) and not quoted_in_patch:
             errors.append(f"{finding.get('id')}: evidence quote does not match range")
     return errors
