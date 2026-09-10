@@ -81,6 +81,7 @@ def main():
             system_prompt,
             "--tools",
             "",
+            "--strict-mcp-config",
             "--permission-mode",
             "dontAsk",
             "--no-session-persistence",

@@ -20,7 +20,9 @@ python3 evals/run.py \
   --record evals/results/fable.json
 ```
 
-The included adapter uses Claude Code with `fable` by default and no tools. Set `GILFOYLE_CLAUDE_MODEL` to override the model. Any other executable that honors the stdin/stdout contract can be substituted.
+The included adapter uses Claude Code with `fable` by default, no tools, and no
+MCP servers (`--strict-mcp-config`); with a typical global MCP config each case
+otherwise loads roughly 500K tokens of tool schemas before reading the fixture. Set `GILFOYLE_CLAUDE_MODEL` to override the model. Any other executable that honors the stdin/stdout contract can be substituted.
 
 `--record` writes each raw review, its scored result, the requested model,
 resolved model ID, and Claude Code version after every completed case. The file
