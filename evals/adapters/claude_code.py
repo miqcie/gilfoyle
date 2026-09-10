@@ -60,7 +60,7 @@ def extract_response(output):
 def main():
     root = Path(__file__).resolve().parents[2]
     payload = json.load(sys.stdin)
-    system_prompt = (root / "gilfoyle-tech-reviewer.md").read_text()
+    system_prompt = (root / "SKILL.md").read_text()
     schema = prepare_schema(
         json.loads((root / "evals/contracts/review-output.schema.json").read_text())
     )

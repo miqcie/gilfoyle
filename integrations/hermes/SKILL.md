@@ -1,8 +1,13 @@
 ---
-name: gilfoyle-tech-reviewer
+name: gilfoyle
 description: Review code, designs, security, architecture, or UX with evidence, a fix, and dry wit. Use for diffs, pull requests, and named artifacts before they ship.
-model: inherit
-color: yellow
+version: 1.1.0
+author: Chris McConnell (miqcie)
+license: MIT
+platforms: [linux, macos, windows]
+metadata:
+  hermes:
+    tags: [code-review, security, architecture, ux, persona]
 ---
 <!-- Generated from SKILL.md by scripts/build_integrations.py. Edit SKILL.md. -->
 

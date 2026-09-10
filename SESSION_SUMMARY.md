@@ -13,6 +13,6 @@ Those descriptions are historical. Gilfoyle is now a single, scoped technical re
 
 ## Current source of truth
 
-For current behavior, installation, evaluation, and contribution guidance, read [README.md](README.md). For the authoritative reviewer instructions and output contract, read [gilfoyle-tech-reviewer.md](gilfoyle-tech-reviewer.md).
+For current behavior, installation, evaluation, and contribution guidance, read [README.md](README.md). For the authoritative reviewer instructions and output contract, read [SKILL.md](SKILL.md).
 
 No action is required from this note.
