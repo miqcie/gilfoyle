@@ -200,6 +200,12 @@ class CliTests(unittest.TestCase):
         }
         self.assertEqual(validate_evidence(review, {}, PATCH), [])
         self.assertEqual(len(validate_evidence(review, {}, None)), 1)
+        from gilfoyle.contract import patch_section
+
+        nested = "diff --git a/src/a/gone.py b/src/a/gone.py\n--- a/src/a/gone.py\n+++ /dev/null\n-nested\n" + PATCH
+        self.assertIn("+++ /dev/null\n", patch_section(nested, "gone.py"))
+        self.assertNotIn("nested", patch_section(nested, "gone.py"))
+        self.assertIsNone(patch_section(nested, "one.py"))
         review["findings"][0]["evidence"]["path"] = "made-up.py"
         self.assertEqual(len(validate_evidence(review, {}, PATCH)), 1)
         review["findings"][0]["evidence"] = {

@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 
 SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2}
@@ -218,12 +219,16 @@ def validate_review(review):
 
 
 
+_DIFF_HEADER = re.compile(r"^diff --git a/(.+?) b/(.+)$", re.MULTILINE)
+
+
 def patch_section(patch, path):
-    """The part of a unified diff that belongs to ``path``, or None."""
-    for section in patch.split("\ndiff --git ")[0:]:
-        header = section.split("\n", 1)[0]
-        if f"a/{path} " in header + " " or header.endswith(f"b/{path}"):
-            return section
+    """The part of a unified diff whose header names ``path`` exactly, or None."""
+    headers = list(_DIFF_HEADER.finditer(patch))
+    for index, header in enumerate(headers):
+        if path in header.groups():
+            end = headers[index + 1].start() if index + 1 < len(headers) else len(patch)
+            return patch[header.start():end]
     return None
 
 
