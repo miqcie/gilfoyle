@@ -30,12 +30,31 @@ def process_error(stdout, stderr, returncode):
 
 def extract_review(output):
     """Normalize Claude Code's direct or wrapped JSON output."""
+    review, _ = extract_response(output)
+    return review
+
+
+def extract_response(output):
+    """Return the review and non-sensitive provider metadata."""
     parsed = json.loads(output)
+    metadata = {}
+    if isinstance(parsed, dict):
+        model_usage = parsed.get("modelUsage")
+        if isinstance(model_usage, dict):
+            metadata["model_ids"] = sorted(model_usage)
+        for source, target in (
+            ("duration_ms", "duration_ms"),
+            ("duration_api_ms", "duration_api_ms"),
+            ("total_cost_usd", "total_cost_usd"),
+            ("num_turns", "num_turns"),
+        ):
+            if source in parsed:
+                metadata[target] = parsed[source]
     if isinstance(parsed, dict) and isinstance(parsed.get("structured_output"), dict):
-        return parsed["structured_output"]
+        return parsed["structured_output"], metadata
     if isinstance(parsed, dict) and isinstance(parsed.get("result"), str):
-        return json.loads(parsed["result"])
-    return parsed
+        return json.loads(parsed["result"]), metadata
+    return parsed, metadata
 
 
 def main():
@@ -62,6 +81,7 @@ def main():
             system_prompt,
             "--tools",
             "",
+            "--strict-mcp-config",
             "--permission-mode",
             "dontAsk",
             "--no-session-persistence",
@@ -80,7 +100,23 @@ def main():
             file=sys.stderr,
         )
         raise SystemExit(process.returncode)
-    json.dump(extract_review(process.stdout), sys.stdout)
+    review, metadata = extract_response(process.stdout)
+    if os.getenv("GILFOYLE_EVAL_ENVELOPE") == "1":
+        version = subprocess.run(
+            ["claude", "--version"],
+            text=True,
+            capture_output=True,
+            check=False,
+        ).stdout.strip()
+        metadata.update(
+            {
+                "requested_model": model,
+                "claude_code_version": version,
+            }
+        )
+        json.dump({"review": review, "metadata": metadata}, sys.stdout)
+    else:
+        json.dump(review, sys.stdout)
     sys.stdout.write("\n")
 
 

@@ -2,15 +2,73 @@
 """Dependency-free replay and live evaluation harness for Gilfoyle."""
 
 import argparse
+import fcntl
+import hashlib
 import json
+import math
 import os
 import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2}
 VERDICTS = {"ship", "fix then ship", "back to the drawing board"}
 PASSES = {"spec", "quality"}
 CONFIDENCE = {"high", "medium", "low"}
+METADATA_STRING_FIELDS = {"requested_model", "claude_code_version"}
+METADATA_NUMBER_FIELDS = {
+    "duration_ms", "duration_api_ms", "total_cost_usd", "num_turns"
+}
+
+
+class LiveReviewError(RuntimeError):
+    def __init__(self, message, record):
+        super().__init__(message)
+        self.record = record
+
+
+def sanitize_metadata(metadata):
+    """Keep only bounded, non-sensitive model provenance and usage fields."""
+    sanitized = {}
+    if not isinstance(metadata, dict):
+        return sanitized
+    for field in METADATA_STRING_FIELDS:
+        value = metadata.get(field)
+        if isinstance(value, str):
+            sanitized[field] = value[:200]
+    model_ids = metadata.get("model_ids")
+    if isinstance(model_ids, list):
+        sanitized["model_ids"] = [
+            value[:200] for value in model_ids[:20] if isinstance(value, str)
+        ]
+    for field in METADATA_NUMBER_FIELDS:
+        value = metadata.get(field)
+        if (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+        ):
+            sanitized[field] = value
+    return sanitized
+
+
+def _failed_response(kind, process, detail=None):
+    """Describe an unusable response without persisting potentially secret text."""
+    stdout = process.stdout.encode()
+    stderr = process.stderr.encode()
+    failure = {
+        "kind": kind,
+        "return_code": process.returncode,
+        "stdout_bytes": len(stdout),
+        "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+        "stderr_bytes": len(stderr),
+        "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+    }
+    if detail:
+        failure["detail"] = detail[:200]
+    return failure
 
 
 def load_cases(fixtures_dir):
@@ -261,6 +319,8 @@ def _live_review(command, case, fixtures_dir):
         if path.is_file()
     }
     payload = {"case": case, "repository_files": files}
+    environment = dict(os.environ)
+    environment["GILFOYLE_EVAL_ENVELOPE"] = "1"
     process = subprocess.run(
         command,
         input=json.dumps(payload),
@@ -268,10 +328,132 @@ def _live_review(command, case, fixtures_dir):
         shell=True,
         capture_output=True,
         check=False,
+        env=environment,
     )
     if process.returncode:
-        raise RuntimeError(process.stderr.strip() or f"command exited {process.returncode}")
-    return json.loads(process.stdout)
+        message = f"live command exited {process.returncode}"
+        stderr = process.stderr.strip()
+        if stderr:
+            # Console only; the record keeps digests, not provider text.
+            message += f": {stderr[:500]}"
+        raise LiveReviewError(message, _failed_response("command_failed", process))
+    try:
+        output = json.loads(process.stdout)
+    except json.JSONDecodeError as error:
+        raise LiveReviewError(
+            f"live command returned invalid JSON at line {error.lineno}, column {error.colno}",
+            _failed_response(
+                "invalid_json",
+                process,
+                f"line {error.lineno}, column {error.colno}",
+            ),
+        ) from error
+    if isinstance(output, dict) and ("review" in output or "metadata" in output):
+        if "review" not in output or not isinstance(output.get("metadata"), dict):
+            raise LiveReviewError(
+                "live command returned an invalid recording envelope",
+                _failed_response("invalid_envelope", process),
+            )
+        return output["review"], sanitize_metadata(output["metadata"])
+    return output, {}
+
+
+def write_live_record(path, cases, complete, summary=None):
+    """Atomically retain raw live reviews after every completed case."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    artifact = {
+        "schema_version": 1,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "complete": complete,
+        "cases": cases,
+        "summary": summary,
+    }
+    handle = tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    )
+    temporary = Path(handle.name)
+    try:
+        with handle:
+            json.dump(artifact, handle, indent=2, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def acquire_record_lock(path):
+    """Hold an advisory lock for one complete live-recording run."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock = open(path.with_suffix(path.suffix + ".lock"), "a+")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        lock.close()
+        raise ValueError(f"record path is already in use: {path}") from error
+    lock.seek(0)
+    lock.truncate()
+    lock.write(str(os.getpid()))
+    lock.flush()
+    return lock
+
+
+def release_record_lock(lock):
+    if lock is not None:
+        fcntl.flock(lock, fcntl.LOCK_UN)
+        lock.close()
+
+
+def _report(results):
+    return {
+        "passed": all(result["passed"] for result in results),
+        "total": len(results),
+        "passed_count": sum(result["passed"] for result in results),
+        "results": results,
+    }
+
+
+def run_evaluations(cases, fixtures, candidates, live_command=None, record=None):
+    """Run cases and durably retain each live response or failure."""
+    results = []
+    live_records = []
+    if record and Path(record).exists():
+        raise ValueError(f"record already exists, move it aside to rerun: {record}")
+    for case in cases:
+        if live_command:
+            try:
+                review, metadata = _live_review(live_command, case, fixtures)
+            except LiveReviewError as error:
+                if record:
+                    live_records.append({"id": case["id"], "failure": error.record})
+                    write_live_record(record, live_records, complete=False)
+                raise
+        else:
+            review = json.loads((Path(candidates) / f"{case['id']}.json").read_text())
+            metadata = {}
+        result = evaluate_case(case, review, fixtures)
+        results.append(result)
+        if record:
+            live_records.append(
+                {
+                    "id": case["id"],
+                    "review": review,
+                    "metadata": metadata,
+                    "evaluation": result,
+                }
+            )
+            write_live_record(record, live_records, complete=False)
+    report = _report(results)
+    if record:
+        write_live_record(record, live_records, complete=True, summary=report)
+    return report
 
 
 def main():
@@ -279,6 +461,10 @@ def main():
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--live-command", default=os.getenv("GILFOYLE_EVAL_COMMAND"))
     parser.add_argument("--json", action="store_true", dest="as_json")
+    parser.add_argument(
+        "--record",
+        help="write raw live reviews, model metadata, and incremental results",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent
@@ -288,24 +474,28 @@ def main():
         cases = select_cases(cases, args.case_ids)
     except ValueError as error:
         parser.error(str(error))
-    results = []
-    for case in cases:
-        if args.live_command:
-            review = _live_review(args.live_command, case, fixtures)
-        else:
-            review = json.loads((root / "candidates" / f"{case['id']}.json").read_text())
-        results.append(evaluate_case(case, review, fixtures))
-
-    report = {
-        "passed": all(result["passed"] for result in results),
-        "total": len(results),
-        "passed_count": sum(result["passed"] for result in results),
-        "results": results,
-    }
+    if args.record and not args.live_command:
+        parser.error("--record requires --live-command")
+    lock = None
+    try:
+        if args.record:
+            lock = acquire_record_lock(args.record)
+        report = run_evaluations(
+            cases,
+            fixtures,
+            root / "candidates",
+            live_command=args.live_command,
+            record=args.record,
+        )
+    except (LiveReviewError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(2) from error
+    finally:
+        release_record_lock(lock)
     if args.as_json:
         print(json.dumps(report, indent=2))
     else:
-        for result in results:
+        for result in report["results"]:
             print(f"{'PASS' if result['passed'] else 'FAIL'} {result['id']}")
             for reason in result["hard_failures"]:
                 print(f"  hard failure: {reason}")

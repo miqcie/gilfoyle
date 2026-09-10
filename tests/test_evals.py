@@ -1,5 +1,6 @@
 import copy
 import json
+import shlex
 import sys
 import unittest
 from pathlib import Path
@@ -8,15 +9,23 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from evals.adapters.claude_code import (  # noqa: E402
+    extract_response,
     extract_review,
     process_error,
     prepare_schema,
 )
 from evals.run import (  # noqa: E402
+    LiveReviewError,
+    _live_review,
+    acquire_record_lock,
     evaluate_case,
     load_cases,
+    release_record_lock,
+    run_evaluations,
+    sanitize_metadata,
     select_cases,
     validate_review,
+    write_live_record,
 )
 
 
@@ -140,6 +149,206 @@ class EvaluationHarnessTests(unittest.TestCase):
         self.assertEqual(
             extract_review(json.dumps({"result": json.dumps(review)})), review
         )
+
+    def test_claude_adapter_preserves_model_metadata_for_recording(self):
+        review = self._candidate("clean-null-refactor")
+        output = json.dumps(
+            {
+                "structured_output": review,
+                "modelUsage": {"claude-fable-5-1": {"inputTokens": 10}},
+            }
+        )
+        actual, metadata = extract_response(output)
+        self.assertEqual(actual, review)
+        self.assertEqual(metadata["model_ids"], ["claude-fable-5-1"])
+
+    def test_live_review_accepts_recording_envelope(self):
+        review = self._candidate("clean-null-refactor")
+        envelope = json.dumps(
+            {
+                "review": review,
+                "metadata": {
+                    "requested_model": "fable",
+                    "model_ids": ["claude-fable-5-1"],
+                },
+            }
+        )
+        command = f"python3 -c {shlex.quote(f'print({envelope!r})')}"
+        actual, metadata = _live_review(
+            command,
+            self._case("clean-null-refactor"),
+            ROOT / "evals/fixtures",
+        )
+        self.assertEqual(actual, review)
+        self.assertEqual(metadata["model_ids"], ["claude-fable-5-1"])
+
+    def test_live_record_keeps_raw_reviews_and_progress(self):
+        from tempfile import TemporaryDirectory
+
+        review = self._candidate("clean-null-refactor")
+        evaluation = evaluate_case(
+            self._case("clean-null-refactor"), review, ROOT / "evals/fixtures"
+        )
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            write_live_record(
+                path,
+                [{
+                    "id": "clean-null-refactor",
+                    "review": review,
+                    "metadata": {
+                        "requested_model": "fable",
+                        "model_ids": ["claude-fable-5-1"],
+                    },
+                    "evaluation": evaluation,
+                }],
+                complete=False,
+            )
+            artifact = json.loads(path.read_text())
+        self.assertFalse(artifact["complete"])
+        self.assertEqual(artifact["cases"][0]["review"], review)
+        self.assertEqual(
+            artifact["cases"][0]["metadata"]["model_ids"],
+            ["claude-fable-5-1"],
+        )
+
+    def test_live_record_drops_unknown_and_secret_metadata(self):
+        metadata = sanitize_metadata(
+            {
+                "requested_model": "fable",
+                "model_ids": ["claude-fable-5-1"],
+                "api_key": "super-secret",
+                "authorization": "Bearer super-secret",
+                "nested": {"token": "super-secret"},
+                "total_cost_usd": float("inf"),
+                "duration_ms": float("nan"),
+            }
+        )
+        self.assertEqual(
+            metadata,
+            {
+                "requested_model": "fable",
+                "model_ids": ["claude-fable-5-1"],
+            },
+        )
+        self.assertNotIn("super-secret", json.dumps(metadata))
+
+    def test_live_record_is_strict_json(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            write_live_record(path, [], complete=False)
+            with self.assertRaises(ValueError):
+                write_live_record(
+                    path,
+                    [{"metadata": {"total_cost_usd": float("inf")}}],
+                    complete=False,
+                )
+            artifact = json.loads(
+                path.read_text(),
+                parse_constant=lambda value: self.fail(
+                    f"non-standard JSON constant: {value}"
+                ),
+            )
+        self.assertFalse(artifact["complete"])
+        self.assertEqual(artifact["cases"], [])
+
+    def test_invalid_json_is_recorded_on_first_and_later_cases(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            directory = Path(directory)
+            adapter = directory / "adapter.py"
+            adapter.write_text(
+                "import json, sys\n"
+                "from pathlib import Path\n"
+                "payload = json.load(sys.stdin)\n"
+                "case_id = payload['case']['id']\n"
+                "if case_id == sys.argv[1]:\n"
+                "    print('api_key=super-secret not-json')\n"
+                "else:\n"
+                f"    root = Path({str(self.candidates)!r})\n"
+                "    review = json.loads((root / f'{case_id}.json').read_text())\n"
+                "    print(json.dumps(review))\n"
+            )
+            clean = self._case("clean-null-refactor")
+            injection = self._case("prompt-injection-comment")
+
+            first_record = directory / "first.json"
+            with self.assertRaises(LiveReviewError):
+                run_evaluations(
+                    [clean],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command=f"python3 {shlex.quote(str(adapter))} clean-null-refactor",
+                    record=first_record,
+                )
+            first = json.loads(first_record.read_text())
+            self.assertFalse(first["complete"])
+            self.assertEqual(first["cases"][0]["failure"]["kind"], "invalid_json")
+            self.assertNotIn("super-secret", first_record.read_text())
+
+            later_record = directory / "later.json"
+            with self.assertRaises(LiveReviewError):
+                run_evaluations(
+                    [clean, injection],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command=f"python3 {shlex.quote(str(adapter))} prompt-injection-comment",
+                    record=later_record,
+                )
+            later = json.loads(later_record.read_text())
+            self.assertFalse(later["complete"])
+            self.assertEqual(later["cases"][0]["id"], "clean-null-refactor")
+            self.assertIn("review", later["cases"][0])
+            self.assertEqual(later["cases"][1]["failure"]["kind"], "invalid_json")
+            self.assertNotIn("super-secret", later_record.read_text())
+
+    def test_existing_record_is_never_overwritten(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            path.write_text('{"paid": "evidence"}\n')
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                run_evaluations(
+                    [self._case("clean-null-refactor")],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command="true",
+                    record=path,
+                )
+            self.assertEqual(path.read_text(), '{"paid": "evidence"}\n')
+
+    def test_failed_live_command_surfaces_stderr_without_recording_it(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            record = Path(directory) / "live.json"
+            with self.assertRaisesRegex(LiveReviewError, "exited 3: session limit reached"):
+                run_evaluations(
+                    [self._case("clean-null-refactor")],
+                    ROOT / "evals/fixtures",
+                    self.candidates,
+                    live_command="echo 'session limit reached' >&2; exit 3",
+                    record=record,
+                )
+            artifact = json.loads(record.read_text())
+            self.assertEqual(artifact["cases"][0]["failure"]["kind"], "command_failed")
+            self.assertNotIn("session limit", record.read_text())
+
+    def test_record_lock_rejects_a_concurrent_writer(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "live.json"
+            first = acquire_record_lock(path)
+            try:
+                with self.assertRaisesRegex(ValueError, "already in use"):
+                    acquire_record_lock(path)
+            finally:
+                release_record_lock(first)
 
     def _candidate(self, case_id):
         return json.loads((self.candidates / f"{case_id}.json").read_text())
