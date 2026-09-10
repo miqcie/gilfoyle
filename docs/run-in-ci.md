@@ -41,24 +41,32 @@ Pin `@master` to a tag or SHA when you want a fixed reviewer version.
 ## 2. Latchkey CLI, from your terminal
 
 [Latchkey](https://latchkey.dev) runs one command on a fresh Linux runner with
-your working tree uploaded. Two facts shape the recipe:
+your working tree uploaded. Verified 2026-09-10 on the runner image (Ubuntu
+24.04, Python 3.12, Node 20, `pipx`, `gh`; no `uv`). Three facts shape the
+recipe:
 
 - `.git` never ships, so compute the diff locally and send it as a file.
 - Credential-shaped files are held back; secrets go in `--env`.
+- `pip install` is blocked by Ubuntu's externally-managed Python, so use
+  `pipx run` to install Gilfoyle straight from GitHub.
 
 ```bash
-npm install -g @latchkeydev/cli        # scoped name; `latchkey` on npm is unrelated
-latchkey login                          # key with "Allow running CLI jobs"
+bun add -g @latchkeydev/cli             # scoped name; `latchkey` on npm is unrelated
+latchkey login                          # key with "Allow running CLI jobs"; needs a real TTY
 
 git diff --merge-base origin/main > .gilfoyle.patch
 latchkey run \
   --env ANTHROPIC_API_KEY="$(op read 'op://Developer Vault/Anthropic/credential')" \
-  'npm install -g @anthropic-ai/claude-code && pip install uv && uvx --from git+https://github.com/miqcie/gilfoyle gilfoyle review --diff .gilfoyle.patch'
+  'npm install -g @anthropic-ai/claude-code; pipx run --spec git+https://github.com/miqcie/gilfoyle gilfoyle review --diff .gilfoyle.patch'
 ```
 
 `latchkey run` exits with the command's exit code, so the verdict comes back
-to your shell. Add `.gilfoyle.patch` to `.gitignore`. The MCP `run_job` tool
-starts from an empty workspace; use the CLI when the job needs your files.
+to your shell. `.gilfoyle.patch` is gitignored in this repository; add it to
+yours. A failing job (any non-zero exit, including a verdict of `1`) triggers
+Latchkey's self-heal diagnosis, which adds a few billed minutes; a run that
+reaches the model and fails auth took about five minutes end to end. The MCP
+`run_job` tool starts from an empty workspace; use the CLI when the job needs
+your files.
 
 ## 3. Local pre-push hook
 
