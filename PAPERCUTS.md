@@ -11,3 +11,5 @@
 - 2026-09-10: running `latchkey login` via the Claude Code `!` prefix → no TTY for the hidden prompt; needs a real terminal or `--token "$(op read ...)"`.
 - 2026-09-10: Latchkey smoke job `which uv` (absent on the image) → job reported failed with exit 1 under the bash wrapper; runner `pip install` is externally managed, so `pipx run --spec git+...` is the install path.
 - 2026-09-10: `echo ==label==` as a shell separator in zsh → equals-expansion error aborted the compound command; quote separators.
+- 2026-09-11: `claude plugin eval init` run from `~` (no `.claude-plugin/plugin.json` there) → the interview started anyway instead of failing fast on a missing manifest, costing a round trip to discover there was no plugin at that path.
+- 2026-09-11: `/wrap-up` step 4 (Notion sync) expects `mcp__notionApi__API-post-page` → not connected in this session, so the wrap-up ritual can't complete that step from a session without the Notion MCP attached.
